@@ -61,9 +61,21 @@ function App() {
     setGPSLongitude(userGPSLongitude);
   }
 
+  // const getGPSAddress = async () => {
+  //   let url = `https://api.opencagedata.com/geocode/v1/json?key=05aeca2a313c44608cf1ed5d3e38eb41&q=${userGPSLatitude}%2C${userGPSLongitude}&pretty=1&no_annotations=1`;
+  //   const loc = await fetch(url);
+  //   const data = await loc.json();
+  //   console.log(data);
+  //   setAddress(data.results[0].formatted);
+  //};
+
   const handleGetUserAddress = () => {
     getUserAddress();
   };
+
+  // const handleGetGPSAddress = () => {
+  //   getGPSAddress();
+  // };
 
   const stopGPS = () => {
     geo.clearWatch(watchID);
