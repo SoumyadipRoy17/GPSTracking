@@ -1,58 +1,40 @@
-import { useState } from "react";
-
+import { useState, useEffect } from "react";
 import "./App.css";
+import { backendURL } from "./backend/config";
 
 function App() {
   const [latitude, setLatitude] = useState(null);
   const [longitude, setLongitude] = useState(null);
   const [address, setAddress] = useState(null);
-
   const [GPSlatitude, setGPSLatitude] = useState(null);
   const [GPSlongitude, setGPSLongitude] = useState(null);
-  //const [error, setError] = useState(null);
 
   const geo = navigator.geolocation;
+  const userId = "unique_user_id"; // Replace with dynamic user ID if available
 
-  // const getLocation = () => {
-  //   if (navigator.geolocation) {
-  //     navigator.geolocation.getCurrentPosition(showPosition);
-  //   } else {
-  //     setError("Geolocation is not supported by this browser.");
-  //   }
-  // };
+  useEffect(() => {
+    geo.getCurrentPosition(userCoords);
+    const watchID = geo.watchPosition(userGPSCoords);
 
-  //Get user current location
-  // const getLocation = () => {
-  //   if (geo) {
-  //     geo.getCurrentPosition((position) => {
-  //       setLatitude(position.coords.latitude);
-  //       setLongitude(position.coords.longitude);
-  //     });
-  //   } else {
-  //     alert("Geolocation is not supported by this browser.");
-  //   }
-  // };
+    // Update location data every second
+    const intervalId = setInterval(() => {
+      updateLocationData();
+    }, 1000);
 
-  //Get user current location
-  geo.getCurrentPosition(userCoords);
+    // Clean up watch and interval on component unmount
+    return () => {
+      geo.clearWatch(watchID);
+      clearInterval(intervalId);
+    };
+  }, [latitude, longitude, GPSlatitude, GPSlongitude, address]); // Run effect when coordinates or address change
 
   function userCoords(position) {
     let userLatitude = position.coords.latitude;
     let userLongitude = position.coords.longitude;
     setLatitude(userLatitude);
     setLongitude(userLongitude);
+    getUserAddress(userLatitude, userLongitude); // Fetch address whenever coordinates change
   }
-
-  const getUserAddress = async () => {
-    let url = `https://api.opencagedata.com/geocode/v1/json?key=05aeca2a313c44608cf1ed5d3e38eb41&q=${latitude}%2C${longitude}&pretty=1&no_annotations=1`;
-    const loc = await fetch(url);
-    const data = await loc.json();
-    console.log(data);
-    setAddress(data.results[0].formatted);
-  };
-
-  //get user gps location in real time
-  const watchID = geo.watchPosition(userGPSCoords);
 
   function userGPSCoords(position) {
     let userGPSLatitude = position.coords.latitude;
@@ -61,24 +43,43 @@ function App() {
     setGPSLongitude(userGPSLongitude);
   }
 
-  // const getGPSAddress = async () => {
-  //   let url = `https://api.opencagedata.com/geocode/v1/json?key=05aeca2a313c44608cf1ed5d3e38eb41&q=${userGPSLatitude}%2C${userGPSLongitude}&pretty=1&no_annotations=1`;
-  //   const loc = await fetch(url);
-  //   const data = await loc.json();
-  //   console.log(data);
-  //   setAddress(data.results[0].formatted);
-  //};
-
-  const handleGetUserAddress = () => {
-    getUserAddress();
+  const getUserAddress = async (lat, lon) => {
+    try {
+      let url = `https://api.opencagedata.com/geocode/v1/json?key=05aeca2a313c44608cf1ed5d3e38eb41&q=${lat}%2C${lon}&pretty=1&no_annotations=1`;
+      const loc = await fetch(url);
+      const data = await loc.json();
+      const formattedAddress = data.results[0]?.formatted || "Unknown location";
+      setAddress(formattedAddress);
+    } catch (error) {
+      console.error("Error fetching address:", error);
+    }
   };
 
-  // const handleGetGPSAddress = () => {
-  //   getGPSAddress();
-  // };
+  const updateLocationData = async () => {
+    try {
+      await fetch(backendURL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          user_id: userId,
+          latitude: latitude,
+          longitude: longitude,
+          GPSlatitude: GPSlatitude,
+          GPSlongitude: GPSlongitude,
+          address: address,
+        }),
+      });
+    } catch (error) {
+      console.error("Error sending data to server:", error);
+    }
+  };
 
-  const stopGPS = () => {
-    geo.clearWatch(watchID);
+  const handleGetUserAddress = () => {
+    if (latitude && longitude) {
+      getUserAddress(latitude, longitude);
+    }
   };
 
   return (
@@ -92,7 +93,6 @@ function App() {
       <h1>GPS Location</h1>
       <p>Latitude: {GPSlatitude}</p>
       <p>Longitude: {GPSlongitude}</p>
-      <button onClick={stopGPS}>Stop GPS</button>
     </>
   );
 }
